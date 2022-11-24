@@ -325,5 +325,3 @@ end)
 
 hook.Add("Tick", "GTrack_Think", GTrack.Think)
 hook.Add("CalcView", "GTrack_CalcView", GTrack.CalcView)
-
-RunConsoleCommand("spawnmenu_reload")
