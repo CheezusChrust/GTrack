@@ -15,6 +15,7 @@ local fmt = string.format
 local hasFocus = system.HasFocus
 
 -- https://stackoverflow.com/a/57443984
+-- License conflict, need to change this later
 function decodeDouble(str)
     -- Used to convert the fraction into a (very large) integer
     local pow2to52 = pow(2, 52)
