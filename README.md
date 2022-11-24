@@ -10,3 +10,8 @@
 3. Install the luasocket binary + lua files into your Garry's Mod folder, downloads linked in the requirements above.
 4. In opentrack, set the output to `UDP over network`, press the configuration button, and set the remote IP address to `127.0.0.1` and the port to `4243` (or any value between 1024-65535).
 5. In Garry's Mod, open the Q menu, navigate to `Options -> GTrack`, configure the port, and enable head tracking. Have fun!
+
+## Issues:
+- opentrack is running, yet I can't connect in GMod
+    - Ensure the port opentrack is using is the same as the one configured in GTrack
+    - Add an outbound rule in Windows Firewall allowing opentrack.exe through
