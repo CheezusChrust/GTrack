@@ -1,11 +1,11 @@
 GTrack = {}
-GTrack.status = 0 -- 0 disabled, 1 connecting, 2 connected
+GTrack.status = 0 -- 0 disabled, 1 waiting for data, 2 connected
 GTrack.data = {}
 
-local port = CreateClientConVar("gtrack_port", "4243", true, false, "Port to listen for opentrack packets on", 1024, 65535)
-local onlyInVehicles = CreateClientConVar("gtrack_onlyvehicles", "1", true, false, "Only enable head tracking when in a vehicle", 0, 1)
-local angSmoothing = CreateClientConVar("gtrack_angsmoothing", "0", true, false, "Amount to smooth angular movement", 0, 1)
-local posSmoothing = CreateClientConVar("gtrack_possmoothing", "0", true, false, "Amount to smooth positional movement", 0, 1)
+local portCvar = CreateClientConVar("gtrack_port", "4243", true, false, "Port to listen for opentrack packets on", 1024, 65535)
+local onlyInVehiclesCvar = CreateClientConVar("gtrack_onlyvehicles", "1", true, false, "Only enable head tracking when in a vehicle", 0, 1)
+local angSmoothingCvar = CreateClientConVar("gtrack_angsmoothing", "0", true, false, "Amount to smooth angular movement", 0, 1)
+local posSmoothingCvar = CreateClientConVar("gtrack_possmoothing", "0", true, false, "Amount to smooth positional movement", 0, 1)
 
 local byte = string.byte
 local substr = string.sub
@@ -48,7 +48,7 @@ function decodeDouble(str)
     -- Handle special cases
     if exponent == 2047 then
         -- Infinities
-        if fraction == 0 then return pow(-1,sign) * math.huge end
+        if fraction == 0 then return pow(-1, sign) * math.huge end
 
         -- NaN
         if fraction == pow2to52-1 then return 0 / 0 end
@@ -57,22 +57,22 @@ function decodeDouble(str)
     -- Combine the values and return the result
     if exponent == 0 then
         -- Handle subnormal numbers
-        return pow(-1,sign) * pow(2,exponent-1023) * (fraction / pow2to52)
+        return pow(-1, sign) * pow(2, exponent - 1023) * (fraction / pow2to52)
     else
         -- Handle normal numbers
-        return pow(-1,sign) * pow(2,exponent-1023) * (fraction / pow2to52 + 1)
+        return pow(-1, sign) * pow(2, exponent - 1023) * (fraction / pow2to52 + 1)
     end
 end
 
 function GTrack.Connect()
     GTrack.status = 1
-    GTrack.dataPanel.status:SetText("Status: Connecting...")
+    GTrack.dataPanel.status:SetText("Status: Waiting for data...")
     GTrack.portButton:SetEnabled(false)
 
     timer.Create("GTrack_Connect", 0.25, 0, function()
         local sock = socket.udp4()
         sock:settimeout(0.01)
-        sock:setsockname("127.0.0.1", port:GetInt())
+        sock:setsockname("127.0.0.1", portCvar:GetInt())
         local _, err = sock:receive()
         sock:close()
 
@@ -103,7 +103,7 @@ function GTrack.Think()
     -- Have to investigate this eventually, this works for now without any apparent problems or FPS drops
     local sock = socket.udp4()
     sock:settimeout(0.01)
-    sock:setsockname("127.0.0.1", port:GetInt())
+    sock:setsockname("127.0.0.1", portCvar:GetInt())
     local udpData, err = sock:receive()
 
     if not err then
@@ -133,7 +133,7 @@ local offsetAng = Angle()
 
 function GTrack.CalcView(_, origin, angles)
     if GTrack.status ~= 2 then return end
-    if onlyInVehicles:GetBool() and not LocalPlayer():InVehicle() then return end
+    if onlyInVehiclesCvar:GetBool() and not LocalPlayer():InVehicle() then return end
 
     local data = GTrack.data
 
@@ -146,8 +146,8 @@ function GTrack.CalcView(_, origin, angles)
 
         local focus = hasFocus() -- When tabbed out funky things happen with smoothing and may crash the game if enabled
 
-        local angSmoothingValue = angSmoothing:GetFloat()
-        local posSmoothingValue = posSmoothing:GetFloat()
+        local angSmoothingValue = angSmoothingCvar:GetFloat()
+        local posSmoothingValue = posSmoothingCvar:GetFloat()
 
         if focus and angSmoothingValue > 0 then
             offsetAng = LerpAngle(max(1 - angSmoothingValue, 0.01) * 100 * dt, offsetAng, rawAng)
@@ -181,6 +181,23 @@ surface.CreateFont("gtrack_labeltext", {
     size = 17,
     weight = 550
 })
+
+surface.CreateFont("gtrack_hovertext", {
+    font = "Roboto",
+    size = 16,
+    weight = 550
+})
+
+-- Apply a tooltip property to the panel, and every child it has
+local function recursiveSetTooltip(panel, tooltip, owner)
+    owner = owner or panel
+    panel.tooltip = tooltip
+    panel.tooltipOwner = owner
+
+    for _, child in ipairs(panel:GetChildren()) do
+        recursiveSetTooltip(child, tooltip, owner)
+    end
+end
 
 function GTrack.buildMenu(panel)
     panel:SetName("GTrack Configuration")
@@ -217,34 +234,41 @@ function GTrack.buildMenu(panel)
     settings:Dock(TOP)
     settings:DockMargin(10, 5, 10, 5)
     settings:SetHeight(110)
+    PrintTable(settings:GetTable())
 
     GTrack.portButton = settings:CreateRow("Settings", "Port")
     GTrack.portButton:Setup("Int", {min = 1024, max = 65535})
-    GTrack.portButton:SetValue(port:GetInt())
+    GTrack.portButton:SetValue(portCvar:GetInt())
     function GTrack.portButton:DataChanged(value)
-        port:SetInt(value)
+        portCvar:SetInt(value)
     end
 
-    GTrack.angSmoothingButton = settings:CreateRow("Settings", "Angle Smoothing")
-    GTrack.angSmoothingButton:Setup("Float", {min = 0, max = 1})
-    GTrack.angSmoothingButton:SetValue(angSmoothing:GetFloat())
-    function GTrack.angSmoothingButton:DataChanged(value)
-        angSmoothing:SetFloat(value)
+    aSmooth = settings:CreateRow("Settings", "Angle Smoothing")
+    aSmooth:Setup("Float", {min = 0, max = 1})
+    aSmooth:SetValue(angSmoothingCvar:GetFloat())
+    function aSmooth:DataChanged(value)
+        angSmoothingCvar:SetFloat(value)
     end
+    recursiveSetTooltip(aSmooth, "Apply an exponential moving\naverage to angular motion")
+    GTrack.angSmoothingButton = aSmooth
 
-    GTrack.posSmoothingButton = settings:CreateRow("Settings", "Position Smoothing")
-    GTrack.posSmoothingButton:Setup("Float", {min = 0, max = 1})
-    GTrack.posSmoothingButton:SetValue(angSmoothing:GetFloat())
-    function GTrack.posSmoothingButton:DataChanged(value)
-        posSmoothing:SetFloat(value)
+    pSmooth = settings:CreateRow("Settings", "Position Smoothing")
+    pSmooth:Setup("Float", {min = 0, max = 1})
+    pSmooth:SetValue(posSmoothingCvar:GetFloat())
+    function pSmooth:DataChanged(value)
+        posSmoothingCvar:SetFloat(value)
     end
+    recursiveSetTooltip(pSmooth, "Apply an exponential moving\naverage to linear motion")
+    GTrack.posSmoothingButton = pSmooth
 
-    GTrack.onlyInVehiclesButton = settings:CreateRow("Settings", "Only in vehicles")
-    GTrack.onlyInVehiclesButton:Setup("Boolean")
-    GTrack.onlyInVehiclesButton:SetValue(onlyInVehicles:GetBool())
-    function GTrack.onlyInVehiclesButton:DataChanged(value)
-        onlyInVehicles:SetBool(value == 1)
+    vehOnly = settings:CreateRow("Settings", "Only in vehicles")
+    vehOnly:Setup("Boolean")
+    vehOnly:SetValue(onlyInVehiclesCvar:GetBool())
+    function vehOnly:DataChanged(value)
+        onlyInVehiclesCvar:SetBool(value == 1)
     end
+    recursiveSetTooltip(vehOnly, "Only enable head tracking\nwhile sitting in vehicles")
+    GTrack.onlyInVehiclesButton = vehOnly
 
     GTrack.dataPanel = {}
 
@@ -291,6 +315,7 @@ function GTrack.buildMenu(panel)
     GTrack.dataPanel.roll.Label:SetFont("gtrack_labeltext")
 end
 
+-- Removing the callback before creating it prevents duplicate callbacks from stacking up when reloading the file
 cvars.RemoveChangeCallback("gtrack_port", "cb")
 cvars.AddChangeCallback("gtrack_port", function(_, _, value)
     if IsValid(GTrack.portButton) then
@@ -318,6 +343,38 @@ cvars.AddChangeCallback("gtrack_onlyvehicles", function(_, _, value)
         GTrack.onlyInVehiclesButton:SetValue(value)
     end
 end, "cb")
+
+local hoverTime = 0
+local lastText
+
+hook.Add("PostRenderVGUI", "GTrack_ToolTips", function()
+    local element = vgui.GetHoveredPanel()
+
+    if not IsValid(element) then return end
+    if element:GetName() == "GModBase" then return end
+
+    local text = element.tooltip
+
+    if not text or text ~= lastText then
+        hoverTime = 0
+        lastText = text
+
+        return
+    end
+
+    hoverTime = hoverTime + RealFrameTime()
+
+    if hoverTime > 0.5 then
+        surface.SetFont("gtrack_hovertext")
+
+        local x, y = element.tooltipOwner:LocalToScreen(0, -20)
+        local xSize, ySize = surface.GetTextSize(text)
+        local hOffset = ySize / 2
+
+        draw.RoundedBox(4, x - 2, y - 2 - hOffset, xSize + 4, ySize + 4, Color(200, 200, 200, 200))
+        draw.DrawText(text, "gtrack_hovertext", x, y - hOffset, Color(0, 0, 0))
+    end
+end)
 
 hook.Add("PopulateToolMenu", "GTrack_CreateMenu", function()
     spawnmenu.AddToolMenuOption("Options", "Player", "gtrack", "GTrack", nil, nil, GTrack.buildMenu)
