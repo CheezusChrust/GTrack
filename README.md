@@ -1,5 +1,5 @@
 # GTrack - Head tracking for Garry's Mod
-## Dependencies:
+## Dependencies (client only - servers just need GTrack):
 - [luasocket binary](https://github.com/danielga/gmod_luasocket/releases/)
     - 64 bit binary can be downloaded [here](https://f001.backblazeb2.com/file/cheezus-sharex/ShareX/2022/11/gmcl_socket.core_win64.dll) (or built from the above repository yourself)
 - [luasocket lua files](https://github.com/danielga/gmod_luasocket)
