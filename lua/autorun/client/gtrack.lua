@@ -9,7 +9,6 @@ local posSmoothingCvar = CreateClientConVar("gtrack_possmoothing", "0", true, fa
 
 local byte = string.byte
 local substr = string.sub
-local socket = socket
 local pow, floor, round, max = math.pow, math.floor, math.Round, math.max
 local fmt = string.format
 local hasFocus = system.HasFocus
