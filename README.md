@@ -9,7 +9,7 @@
 
 ## Setup:
 1. Install this addon into your addons folder.
-2. Install the luasocket binary + lua files into your Garry's Mod folder, downloads linked in the requirements above.
+2. Install the luasocket binary + lua files as directed above.
 3. Install opentrack and set it up with your preferred head tracking solution. Many guides can be found online. Personally, I have used both [AITrack](https://github.com/AIRLegend/aitrack/releases) alongside an old webcam, and the [smoothtrack](https://smoothtrack.app/) ($10 USD) app.
 4. In opentrack, set the output to `UDP over network`, press the configuration button, and set the remote IP address to `127.0.0.1` and the port to `4243` (or any value between 1024-65535).
 5. In Garry's Mod, open the Q menu, navigate to `Options -> GTrack`, configure the port, and enable head tracking. Have fun!
